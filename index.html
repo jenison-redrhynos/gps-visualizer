@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GPS Track Visualizer</title>
+
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+
+  <style>
+    * { box-sizing: border-box; }
+
+    html, body {
+      width: 100%;
+      max-width: 100%;
+      overflow-x: hidden;
+    }
+
+    body {
+      margin: 0;
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f6f7f9;
+      color: #172033;
+    }
+
+    button, textarea { font: inherit; }
+
+    .header {
+      height: 70px;
+      background: #fff;
+      border-bottom: 1px solid #e5e7eb;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-dot {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: #ef4444;
+      color: white;
+      display: grid;
+      place-items: center;
+      font-size: 18px;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 20px;
+    }
+
+    .brand span {
+      color: #6b7280;
+      font-size: 14px;
+      border-left: 1px solid #d1d5db;
+      padding-left: 14px;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    button {
+      border: 1px solid #dbe0e7;
+      background: #fff;
+      color: #273244;
+      border-radius: 8px;
+      padding: 9px 13px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    button:hover { background: #f8fafc; }
+
+    .primary {
+      background: #2563eb;
+      border-color: #2563eb;
+      color: white;
+    }
+
+    .primary:hover { background: #1d4ed8; }
+
+    .danger {
+      color: #dc2626;
+      border-color: #fecaca;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 470px minmax(0, 1fr);
+      gap: 16px;
+      padding: 16px;
+      min-height: calc(100vh - 70px);
+    }
+
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      min-width: 0;
+    }
+
+    .card {
+      background: white;
+      border: 1px solid #e3e7ed;
+      border-radius: 10px;
+      box-shadow: 0 1px 2px rgba(0,0,0,.04);
+      overflow: hidden;
+    }
+
+    .card-header {
+      padding: 16px 16px 8px;
+    }
+
+    .card-header h2 {
+      margin: 0 0 5px;
+      font-size: 16px;
+    }
+
+    .muted {
+      color: #6b7280;
+      font-size: 13px;
+    }
+
+    .input-wrap {
+      padding: 8px 16px 16px;
+    }
+
+    textarea {
+      width: 100%;
+      height: 430px;
+      resize: vertical;
+      border: 1px solid #d8dee7;
+      border-radius: 8px;
+      padding: 13px;
+      outline: none;
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 12px;
+      line-height: 1.55;
+      color: #253044;
+      background: #fcfdff;
+    }
+
+    textarea:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37,99,235,.1);
+    }
+
+    .input-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 10px;
+      gap: 8px;
+    }
+
+    .input-actions .right {
+      display: flex;
+      gap: 8px;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    .stat {
+      padding: 14px 16px;
+      border-top: 1px solid #eef0f3;
+      border-right: 1px solid #eef0f3;
+    }
+
+    .stat:nth-child(3n) { border-right: 0; }
+
+    .stat-label {
+      font-size: 11px;
+      color: #7a8493;
+      margin-bottom: 5px;
+      text-transform: uppercase;
+      letter-spacing: .03em;
+    }
+
+    .stat-value {
+      font-size: 14px;
+      font-weight: 650;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .legend {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 13px;
+      padding: 16px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      font-size: 13px;
+      color: #4b5563;
+    }
+
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #2563eb;
+    }
+
+    .legend-start { background: #16a34a; }
+    .legend-end { background: #ef4444; }
+
+    .legend-line {
+      width: 18px;
+      height: 3px;
+      background: #ef4444;
+      border-radius: 2px;
+    }
+
+    .map-card {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      min-height: 620px;
+      max-width: 100%;
+      overflow: hidden;
+    }
+
+    main > section {
+      min-width: 0;
+      max-width: 100%;
+    }
+
+    .map-toolbar {
+      min-height: 58px;
+      padding: 10px 12px;
+      border-bottom: 1px solid #e5e7eb;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .map-title {
+      font-size: 16px;
+      font-weight: 650;
+    }
+
+    .map-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .check {
+      display: flex;
+      gap: 7px;
+      align-items: center;
+      font-size: 13px;
+      color: #4b5563;
+      padding-right: 5px;
+    }
+
+    #autoFit {
+      accent-color: #2563eb;
+    }
+
+    #map {
+      position: relative;
+      height: 590px;
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+      overflow: hidden;
+      flex: 0 0 auto;
+    }
+
+    /* Leaflet can calculate its tile grid before an embedded preview has
+       finished sizing the container. Keep the map constrained to its parent. */
+    .leaflet-container {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #e5e7eb;
+    }
+
+    .leaflet-pane,
+    .leaflet-tile,
+    .leaflet-marker-icon,
+    .leaflet-marker-shadow,
+    .leaflet-overlay-pane,
+    .leaflet-shadow-pane,
+    .leaflet-marker-pane,
+    .leaflet-tooltip-pane,
+    .leaflet-popup-pane {
+      position: absolute;
+    }
+
+    .leaflet-tile {
+      max-width: none !important;
+      max-height: none !important;
+    }
+
+    .points-card {
+      margin-top: 14px;
+    }
+
+    .points-header {
+      padding: 14px 16px;
+      border-bottom: 1px solid #e5e7eb;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .points-header h2 {
+      margin: 0;
+      font-size: 16px;
+    }
+
+    .table-wrap {
+      max-height: 310px;
+      overflow: auto;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      font-size: 12px;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 10px 12px;
+      border-bottom: 1px solid #eef0f3;
+      white-space: nowrap;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      background: #fafbfc;
+      color: #687385;
+      font-size: 11px;
+      text-transform: uppercase;
+      z-index: 1;
+    }
+
+    .badge {
+      display: inline-flex;
+      padding: 3px 7px;
+      border-radius: 5px;
+      font-size: 11px;
+      font-weight: 650;
+    }
+
+    .badge-location {
+      background: #dcfce7;
+      color: #15803d;
+    }
+
+    .badge-heartbeat {
+      background: #dbeafe;
+      color: #1d4ed8;
+    }
+
+    .empty {
+      padding: 30px;
+      text-align: center;
+      color: #7b8492;
+      font-size: 13px;
+    }
+
+    .route-info {
+      color: #6b7280;
+      font-size: 12px;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: #172033;
+      color: white;
+      padding: 11px 15px;
+      border-radius: 8px;
+      font-size: 13px;
+      opacity: 0;
+      transform: translateY(8px);
+      pointer-events: none;
+      transition: .2s ease;
+      z-index: 9999;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    @media (max-width: 1100px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        order: 1;
+      }
+
+      .map-card {
+        order: 2;
+      }
+
+      #map { height: 520px; }
+    }
+
+    @media (max-width: 600px) {
+      .header {
+        height: auto;
+        padding: 12px;
+        gap: 10px;
+        align-items: flex-start;
+      }
+
+      .brand span { display: none; }
+
+      .header-actions { display: none; }
+
+      .layout { padding: 8px; }
+
+      .summary {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .stat:nth-child(3n) { border-right: 1px solid #eef0f3; }
+      .stat:nth-child(2n) { border-right: 0; }
+
+      .map-toolbar {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .map-actions {
+        width: 100%;
+        flex-wrap: wrap;
+      }
+
+      textarea { height: 350px; }
+    }
+  </style>
+</head>
+
+<body>
+  <header class="header">
+    <div class="brand">
+      <div class="brand-dot">●</div>
+      <h1>GPS Track Visualizer</h1>
+      <span>Paste tracking logs and visualize the route</span>
+    </div>
+
+    <div class="header-actions">
+      <button class="danger" id="clearBtn">Clear All</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <aside class="sidebar">
+
+      <section class="card">
+        <div class="card-header">
+          <h2>1. Paste Tracking Logs</h2>
+          <div class="muted">
+            Paste logs exactly as received from your tracking system.
+          </div>
+        </div>
+
+        <div class="input-wrap">
+          <textarea id="logInput" spellcheck="false"
+            placeholder="Paste tracking logs here..."></textarea>
+
+          <div class="input-actions">
+            <div class="right">
+              <button id="clearInputBtn">Clear</button>
+              <button class="primary" id="parseBtn">▶ Parse & Plot</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-header">
+          <h2>2. Summary</h2>
+        </div>
+
+        <div class="summary">
+          <div class="stat">
+            <div class="stat-label">Log Points</div>
+            <div class="stat-value" id="totalPoints">0</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Route Points</div>
+            <div class="stat-value" id="routePoints">0</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Start Time</div>
+            <div class="stat-value" id="startTime">—</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">End Time</div>
+            <div class="stat-value" id="endTime">—</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Duration</div>
+            <div class="stat-value" id="duration">—</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Distance</div>
+            <div class="stat-value" id="distance">—</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-header">
+          <h2>3. Legend</h2>
+        </div>
+
+        <div class="legend">
+          <div class="legend-item">
+            <span class="legend-dot legend-start"></span>
+            Start Point
+          </div>
+          <div class="legend-item">
+            <span class="legend-dot legend-end"></span>
+            End Point
+          </div>
+          <div class="legend-item">
+            <span class="legend-dot"></span>
+            GPS Point
+          </div>
+          <div class="legend-item">
+            <span class="legend-line"></span>
+            Route Path
+          </div>
+        </div>
+      </section>
+
+    </aside>
+
+    <section>
+      <div class="card map-card">
+        <div class="map-toolbar">
+          <div class="map-title">▧ &nbsp;Route Map</div>
+
+          <div class="map-actions">
+            <label class="check">
+              <input type="checkbox" id="autoFit" checked />
+              Auto Fit
+            </label>
+            <button id="centerBtn">◎ Center Map</button>
+            <button id="fullscreenBtn">⛶ Fullscreen</button>
+          </div>
+        </div>
+
+        <div id="map"></div>
+      </div>
+
+      <div class="card points-card">
+        <div class="points-header">
+          <h2>Points (<span id="tableCount">0</span>)</h2>
+          <span class="route-info" id="routeInfo">No route loaded</span>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Time (Client)</th>
+                <th>Latitude</th>
+                <th>Longitude</th>
+                <th>Accuracy (m)</th>
+                <th>Speed (m/s)</th>
+                <th>Heading (°)</th>
+                <th>Type</th>
+              </tr>
+            </thead>
+            <tbody id="pointsBody">
+              <tr>
+                <td colspan="8" class="empty">
+                  Paste logs and click Parse & Plot
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
+  </script>
+
+  <script>
+    const logInput = document.getElementById("logInput");
+    const pointsBody = document.getElementById("pointsBody");
+
+    let allPoints = [];
+    let routePoints = [];
+    let routeLine = null;
+    let markers = [];
+    let circles = [];
+
+    const map = L.map("map", {
+      zoomControl: true
+    }).setView([0, 0], 2);
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "&copy; OpenStreetMap contributors"
+    }).addTo(map);
+
+    function showToast(message) {
+      const toast = document.getElementById("toast");
+      toast.textContent = message;
+      toast.classList.add("show");
+      clearTimeout(showToast.timer);
+      showToast.timer = setTimeout(() => toast.classList.remove("show"), 2500);
+    }
+
+    function parseTrackingLogs(text) {
+      const lines = text.split(/\r?\n/);
+      const results = [];
+
+      // Locate every JSON object by finding the timestamp header and
+      // then balancing braces. This handles pretty-printed JSON.
+      for (let i = 0; i < lines.length; i++) {
+        const headerMatch = lines[i].match(/^\s*\[([^\]]+)\]\s*(.*)$/);
+        if (!headerMatch) continue;
+
+        const serverTs = headerMatch[1];
+        const source = headerMatch[2].trim();
+
+        let jsonText = "";
+        let started = false;
+        let depth = 0;
+
+        for (let j = i + 1; j < lines.length; j++) {
+          const line = lines[j];
+
+          if (!started && line.includes("{")) {
+            started = true;
+          }
+
+          if (started) {
+            jsonText += line + "\n";
+
+            for (const ch of line) {
+              if (ch === "{") depth++;
+              if (ch === "}") depth--;
+            }
+
+            if (depth === 0) {
+              i = j;
+              break;
+            }
+          }
+        }
+
+        if (!jsonText.trim()) continue;
+
+        try {
+          const record = JSON.parse(jsonText);
+          const payload = record.payload;
+
+          if (!payload ||
+              typeof payload.lat !== "number" ||
+              typeof payload.lng !== "number") {
+            continue;
+          }
+
+          results.push({
+            serverTs,
+            source,
+            type: record.type || "location",
+            lat: payload.lat,
+            lng: payload.lng,
+            accuracyM: payload.accuracyM,
+            heading: payload.heading,
+            speedMps: payload.speedMps,
+            clientTs: payload.clientTs || serverTs,
+            assignmentId: payload.assignmentId || "",
+            lastLocationTs: record.lastLocationTs || null
+          });
+        } catch (error) {
+          console.warn("Could not parse block:", error);
+        }
+      }
+
+      return results.sort((a, b) =>
+        new Date(a.clientTs).getTime() - new Date(b.clientTs).getTime()
+      );
+    }
+
+    function coordinatesEqual(a, b) {
+      return a.lat === b.lat && a.lng === b.lng;
+    }
+
+    function buildRoutePoints(points) {
+      // Keep the first point and every point whose coordinates actually changed.
+      // This prevents repeated heartbeat records from creating artificial
+      // stationary segments in the plotted route.
+      const unique = [];
+
+      for (const point of points) {
+        if (!unique.length || !coordinatesEqual(point, unique[unique.length - 1])) {
+          unique.push(point);
+        }
+      }
+
+      return unique;
+    }
+
+    function distanceMeters(a, b) {
+      const R = 6371000;
+      const lat1 = a.lat * Math.PI / 180;
+      const lat2 = b.lat * Math.PI / 180;
+      const dLat = (b.lat - a.lat) * Math.PI / 180;
+      const dLng = (b.lng - a.lng) * Math.PI / 180;
+
+      const x =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(lat1) * Math.cos(lat2) *
+        Math.sin(dLng / 2) ** 2;
+
+      return 2 * R * Math.asin(Math.sqrt(x));
+    }
+
+    function calculateDistance(points) {
+      let total = 0;
+
+      for (let i = 1; i < points.length; i++) {
+        total += distanceMeters(points[i - 1], points[i]);
+      }
+
+      return total;
+    }
+
+    function formatDistance(meters) {
+      if (meters < 1000) return `${Math.round(meters)} m`;
+      return `${(meters / 1000).toFixed(2)} km`;
+    }
+
+    function formatDuration(ms) {
+      if (!Number.isFinite(ms) || ms < 0) return "—";
+
+      const totalSeconds = Math.floor(ms / 1000);
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+
+      if (hours) return `${hours}h ${minutes}m`;
+      if (minutes) return `${minutes}m ${seconds}s`;
+      return `${seconds}s`;
+    }
+
+    function formatTime(ts) {
+      if (!ts) return "—";
+      const date = new Date(ts);
+      if (Number.isNaN(date.getTime())) return ts;
+
+      return date.toISOString()
+        .replace("T", " ")
+        .replace("Z", "")
+        .replace(/\.\d{3}$/, "");
+    }
+
+    function clearMap() {
+      if (routeLine) {
+        map.removeLayer(routeLine);
+        routeLine = null;
+      }
+
+      markers.forEach(m => map.removeLayer(m));
+      circles.forEach(c => map.removeLayer(c));
+
+      markers = [];
+      circles = [];
+    }
+
+    function renderMap() {
+      clearMap();
+
+      if (!routePoints.length) return;
+
+      const latLngs = routePoints.map(p => [p.lat, p.lng]);
+
+      routeLine = L.polyline(latLngs, {
+        color: "#ef4444",
+        weight: 5,
+        opacity: 0.82
+      }).addTo(map);
+
+      // Small point markers for every unique route coordinate.
+      routePoints.forEach((point, index) => {
+        const circle = L.circleMarker([point.lat, point.lng], {
+          radius: 4,
+          color: "#2563eb",
+          fillColor: "#2563eb",
+          fillOpacity: 0.9,
+          weight: 1
+        }).addTo(map);
+
+        circle.bindPopup(`
+          <strong>Route Point ${index + 1}</strong><br>
+          ${formatTime(point.clientTs)}<br>
+          ${point.lat.toFixed(8)}, ${point.lng.toFixed(8)}<br>
+          Speed: ${point.speedMps ?? "—"} m/s<br>
+          Heading: ${point.heading ?? "—"}°
+        `);
+
+        circles.push(circle);
+      });
+
+      const start = routePoints[0];
+      const end = routePoints[routePoints.length - 1];
+
+      const startMarker = L.marker([start.lat, start.lng])
+        .addTo(map)
+        .bindPopup(`<strong>START</strong><br>${formatTime(start.clientTs)}`);
+
+      const endMarker = L.marker([end.lat, end.lng])
+        .addTo(map)
+        .bindPopup(`<strong>END</strong><br>${formatTime(end.clientTs)}`);
+
+      markers.push(startMarker, endMarker);
+
+      if (document.getElementById("autoFit").checked) {
+        map.fitBounds(routeLine.getBounds(), {
+          padding: [30, 30]
+        });
+      }
+    }
+
+    function renderTable() {
+      document.getElementById("tableCount").textContent = allPoints.length;
+
+      if (!allPoints.length) {
+        pointsBody.innerHTML = `
+          <tr>
+            <td colspan="8" class="empty">Paste logs and click Parse & Plot</td>
+          </tr>`;
+        return;
+      }
+
+      pointsBody.innerHTML = allPoints.map((p, index) => `
+        <tr>
+          <td>${index + 1}</td>
+          <td>${formatTime(p.clientTs)}</td>
+          <td>${Number(p.lat).toFixed(8)}</td>
+          <td>${Number(p.lng).toFixed(8)}</td>
+          <td>${p.accuracyM ?? "—"}</td>
+          <td>${p.speedMps ?? "—"}</td>
+          <td>${p.heading ?? "—"}</td>
+          <td>
+            <span class="badge ${
+              p.type === "heartbeat"
+                ? "badge-heartbeat"
+                : "badge-location"
+            }">
+              ${p.type}
+            </span>
+          </td>
+        </tr>
+      `).join("");
+    }
+
+    function updateSummary() {
+      document.getElementById("totalPoints").textContent = allPoints.length;
+      document.getElementById("routePoints").textContent = routePoints.length;
+
+      if (!allPoints.length) {
+        document.getElementById("startTime").textContent = "—";
+        document.getElementById("endTime").textContent = "—";
+        document.getElementById("duration").textContent = "—";
+        document.getElementById("distance").textContent = "—";
+        document.getElementById("routeInfo").textContent = "No route loaded";
+        return;
+      }
+
+      const start = new Date(allPoints[0].clientTs);
+      const end = new Date(allPoints[allPoints.length - 1].clientTs);
+
+      document.getElementById("startTime").textContent = formatTime(allPoints[0].clientTs);
+      document.getElementById("endTime").textContent = formatTime(allPoints[allPoints.length - 1].clientTs);
+      document.getElementById("duration").textContent = formatDuration(end - start);
+
+      const distance = calculateDistance(routePoints);
+      document.getElementById("distance").textContent = formatDistance(distance);
+
+      document.getElementById("routeInfo").textContent =
+        `${routePoints.length} unique coordinates · ${formatDistance(distance)}`;
+    }
+
+    function parseAndPlot() {
+      const text = logInput.value.trim();
+
+      if (!text) {
+        showToast("Paste tracking logs first.");
+        return;
+      }
+
+      allPoints = parseTrackingLogs(text);
+
+      if (!allPoints.length) {
+        clearMap();
+        routePoints = [];
+        renderTable();
+        updateSummary();
+        showToast("No valid GPS payloads found.");
+        return;
+      }
+
+      routePoints = buildRoutePoints(allPoints);
+
+      renderMap();
+      refreshMapSize(true);
+      renderTable();
+      updateSummary();
+
+      showToast(
+        `Parsed ${allPoints.length} GPS records · ${routePoints.length} route points`
+      );
+    }
+
+    document.getElementById("parseBtn").addEventListener("click", parseAndPlot);
+
+    document.getElementById("clearInputBtn").addEventListener("click", () => {
+      logInput.value = "";
+      clearMap();
+      allPoints = [];
+      routePoints = [];
+      renderTable();
+      updateSummary();
+    });
+
+    document.getElementById("clearBtn").addEventListener("click", () => {
+      logInput.value = "";
+      clearMap();
+      allPoints = [];
+      routePoints = [];
+      renderTable();
+      updateSummary();
+      showToast("Everything cleared.");
+    });
+
+    document.getElementById("centerBtn").addEventListener("click", () => {
+      if (routeLine) {
+        map.fitBounds(routeLine.getBounds(), { padding: [30, 30] });
+      } else if (allPoints.length) {
+        map.setView([allPoints[0].lat, allPoints[0].lng], 15);
+      }
+    });
+
+    function refreshMapSize(refit = false) {
+      // The HTML may be rendered inside an iframe/preview whose dimensions
+      // change after Leaflet has already initialized. invalidateSize()
+      // forces Leaflet to recalculate its viewport and tile positions.
+      requestAnimationFrame(() => {
+        map.invalidateSize({ pan: false, animate: false });
+
+        if (refit && routeLine && document.getElementById("autoFit").checked) {
+          map.fitBounds(routeLine.getBounds(), {
+            padding: [30, 30],
+            animate: false
+          });
+        }
+      });
+    }
+
+    document.getElementById("fullscreenBtn").addEventListener("click", () => {
+      const mapElement = document.getElementById("map");
+
+      if (!document.fullscreenElement) {
+        mapElement.requestFullscreen?.();
+      } else {
+        document.exitFullscreen?.();
+      }
+
+      setTimeout(() => refreshMapSize(true), 100);
+      setTimeout(() => refreshMapSize(true), 500);
+    });
+
+    window.addEventListener("resize", () => refreshMapSize(false));
+
+    // Important for ChatGPT/browser previews and other embedded containers:
+    // observe the actual map size rather than relying only on window.resize.
+    if (window.ResizeObserver) {
+      const observer = new ResizeObserver(() => refreshMapSize(false));
+      observer.observe(document.getElementById("map"));
+      observer.observe(document.querySelector(".map-card"));
+    }
+
+    // Leaflet may initialize before an embedded preview has its final size.
+    refreshMapSize(true);
+    setTimeout(() => refreshMapSize(true), 100);
+    setTimeout(() => refreshMapSize(true), 500);
+
+    document.getElementById("autoFit").addEventListener("change", () => {
+      if (document.getElementById("autoFit").checked && routeLine) {
+        map.fitBounds(routeLine.getBounds(), { padding: [30, 30] });
+      }
+    });
+
+    window.addEventListener("load", () => {
+      setTimeout(() => refreshMapSize(true), 50);
+      setTimeout(() => refreshMapSize(true), 250);
+      setTimeout(() => refreshMapSize(true), 1000);
+    });
+  </script>
+</body>
+</html>
